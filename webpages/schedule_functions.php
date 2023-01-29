@@ -49,7 +49,7 @@ function render_sessions_as_xml($sessions) {
         $panel->setAttribute("trackname", $s->trackname ?: '');
         $panel->setAttribute("hashtag", $s->hashtag ?: '');
         $panel->setAttribute("starttime", $s->starttime ?: '');
-        
+
         foreach ($s->participants as $p) {
             $particpant = $xml -> createElement("participant");
             $particpant->setAttribute("pubsname", $p->pubsname ?: '');
@@ -95,6 +95,8 @@ SELECT
         JOIN PubStatuses PS USING (pubstatusid)
         JOIN Tracks T USING (trackid)
         JOIN KidsCategories KC USING (kidscatid)
+    WHERE
+        R.is_online = 'N'
     ORDER BY
         SCH.starttime, R.roomname;
 EOD;
@@ -131,7 +133,7 @@ SELECT
         LEFT JOIN ParticipantDetails PD USING (badgeid)
         LEFT JOIN Pronouns PRO USING (pronounid)
     ORDER BY
-        SCH.sessionid, POS.moderator DESC, 
+        SCH.sessionid, POS.moderator DESC,
         IF(instr(P.pubsname,C.lastname)>0,C.lastname,substring_index(P.pubsname,' ',-1)),
         C.firstname;
 EOD;
