@@ -115,7 +115,7 @@
                         </a>
                         <div class="dropdown-menu" aria-labelledby="navbarSchedulingDropdown">
                             <xsl:if test="$AutoScheduler">
-                                <a class="dropdown-item" href="{$basepath}Autoscheduler.php">Auto-Scheduler</a>
+                                <a class="dropdown-item" href="{$basepath}autoschedule/index.php">Auto-Scheduler</a>
                             </xsl:if>
                             <a class="dropdown-item" href="{$basepath}MaintainRoomSched.php">Maintain Room Schedule</a>
                             <a class="dropdown-item" href="{$basepath}StaffMaintainSchedule.php">Grid Scheduler</a>

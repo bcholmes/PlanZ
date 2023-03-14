@@ -1,13 +1,13 @@
 <?php
-// Copyright (c) 2022 BC Holmes. All rights reserved. See copyright document for more details.
+// Copyright (c) 2022, 2023 BC Holmes. All rights reserved. See copyright document for more details.
 // This functionality has been inspired by code created by Piglet for the original WisConDB
-// codebase (https://bitbucket.org/wiscon/wiscon/src/master/), and by Alien Planit 
+// codebase (https://bitbucket.org/wiscon/wiscon/src/master/), and by Alien Planit
 // (https://github.com/annalee/alienplanit) by Annalee (https://github.com/annalee)
 
 global $title;
 $title = "Auto-Scheduler";
 
-require_once('StaffCommonCode.php'); // Checks for staff permission among other things
+require_once(__DIR__ . '/../StaffCommonCode.php'); // Checks for staff permission among other things
 
 function number_of_respondants() {
     $query = <<<EOD
@@ -115,7 +115,7 @@ staff_header($title, true);
             <h4>Auto-Scheduler</h4>
         </div>
         <div class="card-body">
-            <p>The auto-scheduler is a tool that can analyze the results of the interest survey, 
+            <p>The auto-scheduler is a tool that can analyze the results of the interest survey,
                 and use those results to perform a first pass at populating the schedule.</p>
             <div class="row">
                 <div class="col-md-6">
@@ -130,7 +130,7 @@ staff_header($title, true);
                             <td class="text-center"><?php echo $countPanelsWithPanelists ?></td>
                         </tr>
                         <tr>
-                            <th rowspan="2"><a href="./TimeSlot.php">Available panel slots</a></th>
+                            <th rowspan="2"><a href="../TimeSlot.php">Available panel slots</a></th>
                             <td>In-Person</td>
                             <td class="text-center"><?php echo $countInPersonSlots ?></td>
                         </tr>

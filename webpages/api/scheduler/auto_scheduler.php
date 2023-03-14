@@ -481,7 +481,6 @@ EOD;
             $slot->day = $row->day;
             $slot->startTime = $row->start_time;
             $slot->endTime = $row->end_time;
-            $slot->roomName = $row->roomname;
             $slots[] = $slot;
         }
 

@@ -128,7 +128,7 @@
                 <ul class="dropdown-menu">
                   <xsl:if test="$AutoScheduler">
                     <li>
-                      <a href="{$basepath}Autoscheduler.php">Auto-Scheduler</a>
+                      <a href="{$basepath}autoschedule/index.php">Auto-Scheduler</a>
                     </li>
                   </xsl:if>
                   <li>
