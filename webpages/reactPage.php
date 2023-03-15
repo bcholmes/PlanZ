@@ -11,7 +11,7 @@
             <?php echo fetchCustomText('alerts') ?>
 
             <div id="app"></div>
-            <script src="dist/planzReactApp.js"></script>
+            <script src="<?php echo BASE_PATH ?>dist/planzReactApp.js"></script>
 <?php
         } else {
 ?>

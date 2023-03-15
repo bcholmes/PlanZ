@@ -1,7 +1,8 @@
 import React from "react";
 import AdminModulesPage from "./admin/adminModulesPage";
-import BrainstormPage from "./brainstorm/brainstormPage";
 import AssignmentsPage from "./assignment/assignmentsPage";
+import AutoSchedulePage from "./autoschedule/autoSchedulePage";
+import BrainstormPage from "./brainstorm/brainstormPage";
 import StaffVolunteerPage from "./volunteer/staffVolunteerPage";
 import VolunteerSignUpPage from "./volunteer/volunteerSignUpPage";
 import PrintRoomScheduleConfigPage from "./tool/printRoomScheduleConfig";
@@ -25,6 +26,8 @@ class CompositePage extends React.Component {
             return (<StaffVolunteerPage />);
         } else if (url.pathname === '/AdminModules.php') {
             return (<AdminModulesPage />);
+        } else if (url.pathname === '/autoschedule/index.php' || url.pathname === '/autoschedule/' ) {
+            return (<AutoSchedulePage />);
         } else if (url.pathname === '/volunteering.php') {
             return (<VolunteerSignUpPage />);
         } else if (url.pathname === '/brainstorm.php') {

@@ -4,490 +4,104 @@ if (file_exists(__DIR__ . '/../../config/db_name.php')) {
     include __DIR__ . '/../../config/db_name.php';
 }
 
-require_once('../../db_exceptions.php');
-require_once('../db_support_functions.php');
-require_once('../../name.php');
-require_once('../../time_slot_functions.php');
+require_once(__DIR__ . "/../db_support_functions.php");
+require_once(__DIR__ . "/../../time_slot_functions.php");
 require_once(__DIR__ . "/../../room_model.php");
+require_once(__DIR__ . "/scheduler_participant_model.php");
+require_once(__DIR__ . "/scheduler_session_model.php");
+require_once(__DIR__ . "/scheduler_time_slot_model.php");
 
 define("ATTEND_IN_PERSON", 1);
-define("ATTEND_EITHER", 2);
-define("ATTEND_ONLINE", 3);
+define("ATTEND_ONLINE", 2);
+define("ATTEND_EITHER", 3);
 
 // Find the X most popular panels...
-define("NUMBER_OF_SESSIONS", 100);
+define("NUMBER_OF_SESSIONS", 150);
 
 // How many panelists should we assign?
 define("MIN_NUMBER_OF_PANELISTS", 3);
 define("IDEAL_NUMBER_OF_PANELISTS", 4);
 define("MAX_NUMBER_OF_PANELISTS", 5);
 
-
-class PersonData {
-    public $badgeId;
-    public $name;
-    public $schedulingPreferences;
-    public $rankings;
-    public $availability;
-    public $assignments;
-
-    function hasSessionRank($sessionId) {
-        return array_key_exists($sessionId, $this->rankings);
-    }
-    function rankForSession($sessionId) {
-        return $this->hasSessionRank($sessionId) ? $this->rankings[$sessionId] : null;
-    }
-    function assignmentLuck() {
-        $luck = 0;
-        $numberOfAssignments = 0;
-        foreach ($this->assignments as $a) {
-            $rank = $this->rankForSession($a->sessionId);
-            $luck += ($rank) ? ($rank->rank * $rank->rank) : 0;
-            $numberOfAssignments += ($rank) ? 1 : 0;
-        }
-        return $luck / sqrt($this->schedulingPreferences->overallMax - $numberOfAssignments);
-    }
-
-    // TODO: consider already assigned items
-    function isAvailable($timeSlot) {
-        if (count($this->availability) == 0) {
-            return true;
-        } else if ($this->schedulingPreferences->maxSessionsForDay($timeSlot->day) <= $this->sessionCountForDay($timeSlot->day)) {
-            return false;
-        } else if ($this->overlapsExistingAssignments($timeSlot)) {
-            return false;
-        } else {
-            $result = false;
-            foreach ($this->availability as $a) {
-                $result = $result || $a->contains($timeSlot->day * 96 + time_to_row_index($timeSlot->startTime), $timeSlot->day * 96 + time_to_row_index($timeSlot->endTime));
-            }
-            return $result;
-        }
-    }
-
-    function overlapsExistingAssignments($timeSlot) {
-        $result = false;
-        foreach ($this->assignments as $a) {
-            if ($a->timeSlot) {
-                $result = $result || $a->timeSlot->overlaps($timeSlot);
-            }
-        }
-        return $result;
-    }
-
-    function sessionCountForDay($day) {
-        $count = 0;
-        foreach ($this->assignments as $a) {
-            if ($a->timeSlot != null) {
-                $count += ($a->timeSlot->day == $day) ? 1 : 0;
-            }
-        }
-        return $count;
-    }
-}
-
-class SchedulingPreferences {
-    public $overallMax;
-    public $dailyMaxes;
-
-    function maxSessionsForDay($day) {
-        if (count($this->dailyMaxes) === 0) {
-            return PREF_DLY_SESNS_LMT;
-        } else {
-            $result = PREF_DLY_SESNS_LMT;
-            $hasRealValue = false;
-            foreach ($this->dailyMaxes as $max) {
-                if ($max != null && $max != 0) {
-                    $hasRealValue;
-                }
-            }
-            if ($hasRealValue) {
-                $temp = array_key_exists($day, $this->dailyMaxes) ? $this->dailyMaxes[$day] : null;
-                return ($temp == null) ? PREF_DLY_SESNS_LMT : $temp;
-            } else {
-                return $result;
-            }
-        }
-    }
-}
-
-class Ranking {
-    public $sessionId;
-    public $rank;
-    public $willModerate;
-    public $howAttend;
-}
-
-class Availability {
-    public $start;
-    public $end;
-
-    function contains($startIndex, $endIndex) {
-        $thisStartIndex = time_to_row_index($this->start);
-        $thisEndIndex = time_to_row_index($this->end);
-
-        return ($thisStartIndex <= $startIndex && $thisEndIndex >= $startIndex
-            && $thisStartIndex <= $endIndex && $thisEndIndex >= $endIndex);
-    }
-}
-
 class Participation {
     public $participant;
     public $moderator;
 }
 
-class Session {
-    public $sessionId;
-    public $rank;
-    public $timeSlot;
-    public $potentialParticipants;
-    public $assignedParticipants;
-    public $message;
-    public $type;
+function persist_session_data($db, $session, $userBadgeId, $userName) {
+    mysqli_begin_transaction($db);
+    try {
 
-    function potentialOnlineParticipants() {
-        $result = array();
-        foreach ($this->potentialParticipants as $p) {
-            $rank = $p->rankForSession($this->sessionId);
-            if ($rank && ($rank->howAttend == ATTEND_ONLINE || $rank->howAttend == ATTEND_EITHER)) {
-                $result[] = $p;
-            }
-        }
-        return $result;
-    }
+        $query = <<<EOD
+        INSERT INTO Schedule
+                (sessionid, roomid, starttime)
+        VALUES (?, ?, ?);
+        EOD;
 
-    function potentialOnlineParticipantCount() {
-        return count($this->potentialOnlineParticipants());
-    }
+        $stmt = mysqli_prepare($db, $query);
+        $time = $session->timeSlot->absoluteStartTime();
+        mysqli_stmt_bind_param($stmt, "iis", $session->sessionId, $session->timeSlot->room->roomId, $time);
 
-    function potentialInPersonParticipants() {
-        $result = array();
-        foreach ($this->potentialParticipants as $p) {
-            $rank = $p->rankForSession($this->sessionId);
-            if ($rank && ($rank->howAttend == ATTEND_IN_PERSON || $rank->howAttend == ATTEND_EITHER)) {
-                $result[] = $p;
-            }
-        }
-        return $result;
-    }
-
-    function potentialInPersonParticipantCount() {
-        return count($this->potentialInPersonParticipants());
-    }
-
-    function allParticipantsAvailable($timeSlot) {
-        $result = true;
-        foreach ($this->assignedParticipants as $p) {
-            $result &= $p->participant->isAvailable($timeSlot);
-        }
-        return $result;
-    }
-}
-
-class TimeSlot {
-    public $day;
-    public $startTime;
-    public $endTime;
-    public $roomId;
-    public $room;
-    public $session;
-
-    function startTimeIndex() {
-        return $this->day * 96 + time_to_row_index($this->startTime);
-    }
-
-    function endTimeIndex() {
-        return $this->day * 96 + time_to_row_index($this->endTime);
-    }
-
-    function overlaps($timeSlot) {
-        if ($this->startTimeIndex() <= $timeSlot->startTimeIndex() &&
-            $timeSlot->startTimeIndex() <= $this->endTimeIndex()) {
-            // we contain the other start time
-            return true;
-        } else if ($this->startTimeIndex() <= $timeSlot->endTimeIndex() &&
-            $timeSlot->endTimeIndex() <= $this->endTimeIndex()) {
-            // we contain the other end time
-            return true;
-        } else if ($timeSlot->startTimeIndex() <= $this->startTimeIndex() &&
-            $this->endTimeIndex() <= $timeSlot->endTimeIndex()) {
-            // the other timeslot encompasses us
-            return true;
+        if ($stmt->execute()) {
+            mysqli_stmt_close($stmt);
         } else {
-            return false;
+            throw new DatabaseSqlException($query);
         }
-    }
 
-    static function compareByPreferredTime($ts1, $ts2) {
-        $time1 = time_to_row_index($ts1->startTime);
-        $time2 = time_to_row_index($ts2->startTime);
+        $query = <<<EOD
+        UPDATE Sessions
+           SET statusid = 3
+         WHERE sessionid = ?
+        EOD;
 
-        if ($time1 < 40 && $time2 >= 40) {
-            return 1;
-        } else if ($time2 < 40 && $time1 >= 40) {
-            return -1;
-        } else if ($time1 < 40 && $time2 < 40) {
-            if ($ts1->day == $ts2->day) {
-                return $ts1->roomId - $ts2->roomId;
-            } else {
-                return $ts1->day - $ts2->day;
-            }
-        } else if ($time1 > 88 && $time2 > 88) {
-            if ($time1 != $time2) {
-                return $time1 - $time2;
-            } else if ($ts1->day != $ts2->day) {
-                return $ts1->day - $ts2->day;
-            } else {
-                return $ts1->roomId - $ts2->roomId;
-            }
-        } else if ($time1 > 88) {
-            return 1;
-        } else if ($time2 > 88) {
-            return -1;
-        } else if ($time1 > 60 && $time2 > 60) {
-            if ($time1 != $time2) {
-                return $time1 - $time2;
-            } else if ($ts1->day != $ts2->day) {
-                return $ts1->day - $ts2->day;
-            } else {
-                return $ts1->roomId - $ts2->roomId;
-            }
-        } else if ($time1 > 60) {
-            return 1;
-        } else if ($time2 > 60) {
-            return -1;
-        } else if ($time1 != $time2) {
-            return $time1 - $time2;
-        } else if ($ts1->day != $ts2->day) {
-            return $ts1->day - $ts2->day;
+        $stmt = mysqli_prepare($db, $query);
+        mysqli_stmt_bind_param($stmt, "i", $session->sessionId);
+
+        if ($stmt->execute()) {
+            mysqli_stmt_close($stmt);
         } else {
-            return $ts1->roomId - $ts2->roomId;
+            throw new DatabaseSqlException($query);
         }
-    }
-}
 
+        $query = <<<EOD
+        INSERT INTO SessionEditHistory
+        (sessionid, badgeid, name, sessioneditcode, statusid)
+        VALUES
+        (?, ?, ?, 3, 3)
+        EOD;
 
-function find_all_interested_participants($db) {
-    $query = <<<EOD
-     select P.badgeid, PA.maxprog as overall_max,
-            P.pubsname, CD.badgename, CD.firstname, CD.lastname,
-            PAD.day, PAD.maxprog as day_max
-        FROM Participants P
-        JOIN CongoDump CD using (badgeid)
-        LEFT OUTER JOIN ParticipantAvailability PA using (badgeid)
-        LEFT OUTER JOIN ParticipantAvailabilityDays PAD using (badgeid)
-       WHERE P.interested = 1
-         AND P.badgeid in (select badgeid from ParticipantSessionInterest where rank in (1, 2, 3) or willmoderate = 1)
-       ORDER BY P.badgeid, PAD.day;
-EOD;
-    $stmt = mysqli_prepare($db, $query);
-    if (mysqli_stmt_execute($stmt)) {
-        $participants = array();
-        $current = null;
-        $result = mysqli_stmt_get_result($stmt);
-        while ($row = mysqli_fetch_object($result)) {
-            $badgeId = $row->badgeid;
-            if ($current == null || $current->badgeId != $badgeId) {
-                $current = new PersonData();
-                $current->badgeId = $badgeId;
-                $name = new PersonName();
-                $name->pubsName = $row->pubsname;
-                $name->badgeName = $row->badgename;
-                $name->firstName = $row->firstname;
-                $name->lastName = $row->lastname;
-                $current->name = $name;
-                $current->schedulingPreferences = new SchedulingPreferences();
-                $current->rankings = array();
-                $current->availability = array();
-                $current->assignments = array();
-                if ($row->overall_max) {
-                    $current->schedulingPreferences->overallMax = $row->overall_max;
-                } else {
-                    $current->schedulingPreferences->overallMax = PREF_TTL_SESNS_LMT;
-                }
-                $current->schedulingPreferences->dailyMaxes = array();
-                $participants[$badgeId] = $current;
-            }
-            if ($row->day != null && $row->day_max != null) {
-                $participants[$badgeId]->schedulingPreferences->dailyMaxes[$row->day] = $row->day_max;
-            }
+        $stmt = mysqli_prepare($db, $query);
+        mysqli_stmt_bind_param($stmt, "iss", $session->sessionId, $userBadgeId, $userName);
+
+        if ($stmt->execute()) {
+            mysqli_stmt_close($stmt);
+        } else {
+            throw new DatabaseSqlException($query);
         }
-        mysqli_stmt_close($stmt);
-        return $participants;
-    } else {
-        throw new DatabaseSqlException("Query could not be executed: $query");
-    }
-}
 
-function find_all_rankings($db, $participants) {
-    $query = <<<EOD
-      SELECT PSI.badgeid, PSI.sessionid, PSI.rank, PSI.willmoderate, PSI.attend_type
-        FROM Sessions s
-        JOIN ParticipantSessionInterest PSI USING (sessionid)
-        JOIN SessionStatuses ss USING (statusid)
-        JOIN PubStatuses ps USING (pubstatusid)
-       WHERE ss.may_be_scheduled = 1
-         AND (PSI.rank in (1, 2, 3) or PSI.willmoderate = 1)
-         AND ps.pubstatusname = 'Public'
-         AND s.divisionid in (select divisionid from Divisions where divisionname = 'Panels')
-EOD;
+        foreach ($session->assignedParticipants as $p) {
+            $query = <<<EOD
+            INSERT INTO ParticipantOnSessionHistory
+                    (badgeid, sessionid, moderator, createdbybadgeid, createdts)
+            VALUES (?, ?, 0, ?, NOW());
+            EOD;
 
-    $stmt = mysqli_prepare($db, $query);
-    if (mysqli_stmt_execute($stmt)) {
-        $result = mysqli_stmt_get_result($stmt);
-        while ($row = mysqli_fetch_object($result)) {
-            $badgeId = $row->badgeid;
-            $ranking = new Ranking();
-            $ranking->sessionId = $row->sessionid;
-            $ranking->rank = $row->rank;
-            if ($ranking->rank == null) {
-                $ranking->rank = 3; // some people specify that they will moderate, but don't specify a rank
-            }
-            $ranking->willModerate = ($row->willmoderate == 1) ? true : false;
-            $ranking->howAttend = $row->attend_type;
+            $stmt = mysqli_prepare($db, $query);
+            error_log("Badge id of participant is " . $p->participant->badgeId . "!");
+            error_log("Badge id of user is >" . $userBadgeId . "<!");
+            mysqli_stmt_bind_param($stmt, "sis", $p->participant->badgeId, $session->sessionId, $userBadgeId);
 
-            $participant = $participants[$badgeId];
-            if ($participant) {
-                $participant->rankings[$ranking->sessionId] = $ranking;
+            if ($stmt->execute()) {
+                mysqli_stmt_close($stmt);
             } else {
-                error_log("Badge id $badgeId not found.");
+                throw new DatabaseSqlException($query . " : " . mysqli_error($db));
             }
         }
 
-        mysqli_stmt_close($stmt);
-        return $participants;
-    } else {
-        throw new DatabaseSqlException("Query could not be executed: $query");
-    }
-}
-
-function find_availability($db, $participants) {
-    $query = <<<EOD
-      SELECT PAT.badgeid, PAT.starttime, PAT.endtime
-        FROM ParticipantAvailabilityTimes PAT
-        JOIN Participants P USING (badgeid)
-       WHERE PAT.badgeid in (select badgeid from ParticipantSessionInterest where rank in (1, 2, 3) or willmoderate = 1)
-         AND P.interested = 1
-       ORDER BY PAT.badgeid, PAT.availabilitynum
-EOD;
-
-    $stmt = mysqli_prepare($db, $query);
-    if (mysqli_stmt_execute($stmt)) {
-        $result = mysqli_stmt_get_result($stmt);
-        while ($row = mysqli_fetch_object($result)) {
-            $badgeId = $row->badgeid;
-            $availability = new Availability();
-            $availability->start = $row->starttime;
-            $availability->end = $row->endtime;
-
-            $participant = $participants[$badgeId];
-            if ($participant) {
-                $participant->availability[] = $availability;
-            }
-        }
-
-        mysqli_stmt_close($stmt);
-        return $participants;
-    } else {
-        throw new DatabaseSqlException("Query could not be executed: $query");
-    }
-}
-
-function find_sessions($db, $numberOfSessions) {
-    $query = <<<EOD
-        select sessionid, title,
-            sum(attend1 * 1.2 + attend2 + attend3 * 0.5) as rank
-        from
-        (SELECT
-                S.sessionid, S.title, T.trackname, T.display_order,
-                case PSI.attend when 1 then 1 else 0 end as attend1,
-                case PSI.attend when 2 then 1 else 0 end as attend2,
-                case PSI.attend when 3 then 1 else 0 end as attend3,
-                P.badgeid
-            FROM
-                Sessions S
-                JOIN Tracks T USING (trackid)
-                JOIN Types Ty USING (typeid)
-            LEFT JOIN ParticipantSessionInterest PSI USING (sessionid)
-            LEFT JOIN Participants P ON PSI.badgeid = P.badgeid AND P.interested = 1
-            WHERE
-                S.statusid IN (2,3,7)
-                AND S.invitedguest = 0
-                AND S.divisionid in (select divisionid from Divisions where divisionname = 'Panels')) FB
-        GROUP BY
-            sessionid, title
-        ORDER BY rank desc, sessionid
-        LIMIT $numberOfSessions
-EOD;
-
-    $sessions = array();
-    $stmt = mysqli_prepare($db, $query);
-    if (mysqli_stmt_execute($stmt)) {
-        $result = mysqli_stmt_get_result($stmt);
-        while ($row = mysqli_fetch_object($result)) {
-            $sessionId = $row->sessionid;
-            $session = new Session();
-            $session->sessionId = $sessionId;
-            $session->title = $row->title;
-            $session->rank = $row->rank;
-            $session->potentialParticipants = array();
-            $session->assignedParticipants = array();
-            $sessions[$sessionId] = $session;
-        }
-
-        mysqli_stmt_close($stmt);
-        return $sessions;
-    } else {
-        throw new DatabaseSqlException("Query could not be executed: $query");
-    }
-}
-
-function find_all_timeslots($db) {
-    $query = <<<EOD
-    SELECT r.roomid, r2a.day, s.start_time, s.end_time, r.roomname, r.is_online
-      FROM Rooms r,
-           room_to_availability r2a,
-           room_availability_schedule a,
-           room_availability_slot s,
-           Divisions d
-    WHERE r.is_scheduled = 1
-      AND r.roomid = r2a.roomid
-      AND r2a.availability_id = a.id
-      AND s.availability_schedule_id = a.id
-      AND d.divisionid = s.divisionid
-      AND d.divisionname = 'Panels';
-EOD;
-
-    $rooms = array();
-    $slots = array();
-    $stmt = mysqli_prepare($db, $query);
-    if (mysqli_stmt_execute($stmt)) {
-        $result = mysqli_stmt_get_result($stmt);
-        while ($row = mysqli_fetch_object($result)) {
-            $slot = new TimeSlot();
-            $slot->roomId = $row->roomid;
-
-            if (array_key_exists($slot->roomId, $rooms)) {
-                $slot->room = $rooms[$slot->roomId];
-            } else {
-                $room = new Room();
-                $room->roomId = $row->roomid;
-                $room->roomName = $row->roomname;
-                $room->isOnline = $row->is_online == 'Y' ? true : false;
-                $slot->room = $room;
-                $rooms[$slot->roomId] = $room;
-            }
-
-            $slot->day = $row->day;
-            $slot->startTime = $row->start_time;
-            $slot->endTime = $row->end_time;
-            $slots[] = $slot;
-        }
-
-        mysqli_stmt_close($stmt);
-        return $slots;
-    } else {
-        throw new DatabaseSqlException("Query could not be executed: $query");
+        mysqli_commit($db);
+    } catch (Exception $e) {
+        mysqli_rollback($db);
+        throw $e;
     }
 }
 
@@ -657,26 +271,55 @@ function assign_online_timeslots($sessions, $timeslots) {
     }
 }
 
+function assign_in_person_timeslots($sessions, $timeslots) {
+    $filteredSessions = array();
+    foreach ($sessions as $s) {
+        if (count($s->assignedParticipants) > 0 && $s->type == ATTEND_IN_PERSON) {
+            $filteredSessions[] = $s;
+        }
+    }
+
+    $filteredSlots = array();
+    foreach ($timeslots as $s) {
+        if (!$s->room->isOnline) {
+            $filteredSlots[] = $s;
+        }
+    }
+
+    usort($filteredSlots, array("TimeSlot", "compareByRoomSizeAndPreferredTime"));
+    usort($filteredSessions, array("Session", "compareByRank"));
+
+    foreach ($filteredSessions as $s) {
+        foreach ($filteredSlots as $ts) {
+            if ($ts->session == null && $s->allParticipantsAvailable($ts)) {
+                $ts->session = $s;
+                $s->timeSlot = $ts;
+                break;
+            }
+        }
+    }
+}
+
 
 function assign_timeslots($db, $sessions) {
-    $timeSlots = find_all_timeslots($db);
+    $timeSlots = TimeSlot::findAllTimeslots($db);
     usort($timeSlots, array("TimeSlot", "compareByPreferredTime"));
 
     assign_online_timeslots($sessions, $timeSlots);
+    assign_in_person_timeslots($sessions, $timeSlots);
 
     return $timeSlots;
 }
 
-session_start();
-$db = connect_to_db();
+start_session_if_necessary();
+$db = connect_to_db(true);
+$authentication = new Authentication();
 try {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['badgeid'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $authentication->isProgrammingStaff()) {
 
-        $participants = find_all_interested_participants($db);
-        $participants = find_all_rankings($db, $participants);
-        $participants = find_availability($db, $participants);
+        $participants = PersonData::findAllInterestedParticipants($db);
+        $sessions = Session::findAllSessions($db, NUMBER_OF_SESSIONS);
 
-        $sessions = find_sessions($db, NUMBER_OF_SESSIONS);
         collate_persons_into_sessions($sessions, $participants);
 
         $result = create_first_pass_assignments_for_sessions($sessions, $participants);
@@ -697,6 +340,10 @@ try {
                 $timeSlot = array("Room" => $s->timeSlot->roomName, "day" => $s->timeSlot->day, "startTime" => $s->timeSlot->startTime, "endTime" => $s->timeSlot->endTime);
                 $record["timeSlot"] = $timeSlot;
                 $records[] = $record;
+
+                persist_session_data($db, $s, $_SESSION['badgeid'], $_SESSION['badgename']);
+            } else if ($s->timeSlot == null && count($s->assignedParticipants) > 0) {
+                error_log("There were " . count($s->assignedParticipants) . " assigned to session " . $s->sessionId);
             }
         }
 
