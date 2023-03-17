@@ -1,5 +1,7 @@
 <?php
 
+require_once(__DIR__ . "/room_model.php");
+
 function time_to_row_index($time, $rowSize = 15) {
     $index1 = strpos($time, ':');
     $hours = intval(substr($time, 0, $index1));

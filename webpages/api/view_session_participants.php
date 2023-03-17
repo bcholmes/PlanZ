@@ -71,7 +71,7 @@ try {
         } else {
             http_response_code(400);
         }
-    } else if ($_SERVER['REQUEST_METHOD'] === 'GET' && isLoggedIn()) {
+    } else if ($_SERVER['REQUEST_METHOD'] === 'GET' && $authentication->isLoggedIn()) {
         http_response_code(403);
     } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         http_response_code(401);

@@ -1,5 +1,7 @@
 <?php
 
+require_once(__DIR__ . "/../../time_slot_functions.php");
+
 class TimeSlot {
     public $day;
     public $startTime;

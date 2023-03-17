@@ -5,11 +5,13 @@ if (file_exists(__DIR__ . '/../../config/db_name.php')) {
 }
 
 require_once(__DIR__ . "/../db_support_functions.php");
-require_once(__DIR__ . "/../../time_slot_functions.php");
+require_once(__DIR__ . '/../authentication.php');
+require_once(__DIR__ . '/../http_session_functions.php');
 require_once(__DIR__ . "/../../room_model.php");
 require_once(__DIR__ . "/scheduler_participant_model.php");
 require_once(__DIR__ . "/scheduler_session_model.php");
 require_once(__DIR__ . "/scheduler_time_slot_model.php");
+require_once(__DIR__ . "/../participant_assignment_model.php");
 
 define("ATTEND_IN_PERSON", 1);
 define("ATTEND_ONLINE", 2);
@@ -28,7 +30,7 @@ class Participation {
     public $moderator;
 }
 
-function persist_session_data($db, $session, $userBadgeId, $userName) {
+function persist_session_data($db, $session, $userBadgeId, $userName, $authentication) {
     mysqli_begin_transaction($db);
     try {
 
@@ -80,22 +82,7 @@ function persist_session_data($db, $session, $userBadgeId, $userName) {
         }
 
         foreach ($session->assignedParticipants as $p) {
-            $query = <<<EOD
-            INSERT INTO ParticipantOnSessionHistory
-                    (badgeid, sessionid, moderator, createdbybadgeid, createdts)
-            VALUES (?, ?, 0, ?, NOW());
-            EOD;
-
-            $stmt = mysqli_prepare($db, $query);
-            error_log("Badge id of participant is " . $p->participant->badgeId . "!");
-            error_log("Badge id of user is >" . $userBadgeId . "<!");
-            mysqli_stmt_bind_param($stmt, "sis", $p->participant->badgeId, $session->sessionId, $userBadgeId);
-
-            if ($stmt->execute()) {
-                mysqli_stmt_close($stmt);
-            } else {
-                throw new DatabaseSqlException($query . " : " . mysqli_error($db));
-            }
+            ParticipantAssignment::insertAssignmentWithTransaction($db, $session->sessionId, $p->participant->badgeId, $authentication);
         }
 
         mysqli_commit($db);
@@ -337,11 +324,11 @@ try {
                 }
                 $record["assignments"] = $assignments;
 
-                $timeSlot = array("Room" => $s->timeSlot->roomName, "day" => $s->timeSlot->day, "startTime" => $s->timeSlot->startTime, "endTime" => $s->timeSlot->endTime);
+                $timeSlot = array("Room" => $s->timeSlot->room->roomName, "day" => $s->timeSlot->day, "startTime" => $s->timeSlot->startTime, "endTime" => $s->timeSlot->endTime);
                 $record["timeSlot"] = $timeSlot;
                 $records[] = $record;
 
-                persist_session_data($db, $s, $_SESSION['badgeid'], $_SESSION['badgename']);
+                persist_session_data($db, $s, $_SESSION['badgeid'], $_SESSION['badgename'], $authentication);
             } else if ($s->timeSlot == null && count($s->assignedParticipants) > 0) {
                 error_log("There were " . count($s->assignedParticipants) . " assigned to session " . $s->sessionId);
             }

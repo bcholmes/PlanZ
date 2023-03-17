@@ -355,6 +355,17 @@ EOD;
     }
 
     public static function insertAssignment($db, $sessionId, $badgeId, $authentication) {
+        $db->begin_transaction();
+        try {
+            ParticipantAssignment::insertAssignmentWithTransaction($db, $sessionId, $badgeId, $authentication);
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollback();
+            throw $e;
+        }
+    }
+
+    public static function insertAssignmentWithTransaction($db, $sessionId, $badgeId, $authentication) {
         $changedBy = $authentication->getBadgeId();
 
         $query = <<<EOD
@@ -367,29 +378,20 @@ EOD;
         (`badgeid`, `sessionid`, `change_by_badgeid`, `change_type`, `moderator`)
         values (?, ?, ?, 'insert_assignment', 0);
 EOD;
-        $db->begin_transaction();
-        try {
+        $stmt = mysqli_prepare($db, $query);
+        mysqli_stmt_bind_param($stmt, "is", $sessionId, $badgeId);
+        if (mysqli_stmt_execute($stmt)) {
+            mysqli_stmt_close($stmt);
+        } else {
+            throw new DatabaseSqlException("Insert could not be executed: $query " . mysqli_error($db));
+        }
 
-            $stmt = mysqli_prepare($db, $query);
-            mysqli_stmt_bind_param($stmt, "is", $sessionId, $badgeId);
-            if (mysqli_stmt_execute($stmt)) {
-                mysqli_stmt_close($stmt);
-            } else {
-                throw new DatabaseSqlException("Insert could not be executed: $query");
-            }
-
-            $stmt = mysqli_prepare($db, $historyQuery);
-            mysqli_stmt_bind_param($stmt, "sis", $badgeId, $sessionId, $changedBy);
-            if (mysqli_stmt_execute($stmt)) {
-                mysqli_stmt_close($stmt);
-            } else {
-                throw new DatabaseSqlException("Insert could not be executed: $historyQuery");
-            }
-
-            $db->commit();
-        } catch (Exception $e) {
-            $db->rollback();
-            throw $e;
+        $stmt = mysqli_prepare($db, $historyQuery);
+        mysqli_stmt_bind_param($stmt, "sis", $badgeId, $sessionId, $changedBy);
+        if (mysqli_stmt_execute($stmt)) {
+            mysqli_stmt_close($stmt);
+        } else {
+            throw new DatabaseSqlException("Insert could not be executed: $historyQuery" . mysqli_error($db));
         }
     }
 
