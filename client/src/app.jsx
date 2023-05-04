@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { Toaster } from 'react-hot-toast';
 import CompositePage from './page/compositePage';
 
 export class App extends Component {
@@ -11,6 +12,9 @@ export class App extends Component {
     }
 
     render() {
-        return (<CompositePage />);
+        return (<>
+            <CompositePage />
+            <Toaster />
+        </>);
     }
 }

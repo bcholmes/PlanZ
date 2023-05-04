@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Nav from 'react-bootstrap/Nav';
 import { connect } from 'react-redux';
-import { fetchAllShiftAssignments, fetchJobs, fetchShifts } from '../../state/volunteerFunctions';
+import { fetchAllShiftAssignments, fetchJobs } from '../../state/volunteerFunctions';
 import CreateVolunteerJobModal from './createVolunteerJobModal';
 import CreateVolunteerShiftModal from './createVolunteerShiftModal';
 import VolunteerJobsWidget from './volunteerJobsWidget';

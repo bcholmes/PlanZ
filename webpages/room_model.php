@@ -113,7 +113,8 @@ class Room {
         SELECT r.roomname, r.roomid, r.is_online, r.area, r.display_order, r.parent_room
           FROM Rooms r
         WHERE r.is_scheduled = 1
-          AND r.roomid in (select roomid from Schedule)
+          AND (r.roomid in (select roomid from Schedule)
+               OR r.roomid in (select x.parent_room from Rooms x where x.roomid in (select roomid from Schedule)))
         ORDER BY display_order;
 EOD;
 

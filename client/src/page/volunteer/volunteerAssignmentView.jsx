@@ -7,8 +7,6 @@ import NameDisplay from '../../common/nameDisplay';
 import SimpleAlert from '../../common/simpleAlert';
 import { formatDay, renderDateRange } from '../../util/dateUtil';
 import MemberCard from './memberCard';
-import axios from 'axios';
-import { redirectToLogin } from '../../common/redirectToLogin';
 import { fetchAllShiftAssignments } from '../../state/volunteerFunctions';
 
 import dayjs from "dayjs";
@@ -16,6 +14,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import advancedFormat from "dayjs/plugin/advancedFormat"
 import customParseFormat from "dayjs/plugin/customParseFormat"
+import authAxios from '../../common/authAxios';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(customParseFormat);
@@ -121,16 +120,13 @@ class VolunteerAssignmentView extends React.Component {
     }
 
     deleteVolunteerAssignment(shiftId, badgeId) {
-        axios.delete('/api/volunteer/volunteer_shift_assignment.php', {
+        authAxios.delete('/api/volunteer/volunteer_shift_assignment.php', {
             data: { shiftId: shiftId, badgeId: badgeId }
         })
         .then(res => {
             fetchAllShiftAssignments();
         })
         .catch(error => {
-            if (error.response && error.response.status === 401) {
-                redirectToLogin();
-            }
         });
     }
 
@@ -180,14 +176,12 @@ class VolunteerAssignmentView extends React.Component {
     }
 
     fetchPotentialVolunteers(shiftId, queryString) {
-        axios.get('/api/volunteer/find_potential_volunteers.php?shiftId=' + encodeURIComponent(shiftId) + "&q=" + encodeURIComponent(queryString))
+        authAxios.get('/api/volunteer/find_potential_volunteers.php?shiftId=' + encodeURIComponent(shiftId) + "&q=" + encodeURIComponent(queryString))
             .then(res => {
                 this.setState(state => ({...state, candidates: res.data?.candidates, modalMessage: null }))
             })
             .catch(error => {
-                if (error.response && error.response.status === 401) {
-                    redirectToLogin();
-                } else {
+                if (error.response && error.response?.status !== 401) {
                     let message = "The list of candidates could not be downloaded."
                     this.setState(state => ({...state, candidates: [], modalMessage: message }))
                 }

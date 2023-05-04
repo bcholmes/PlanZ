@@ -39,10 +39,18 @@ class PersonName {
 
     static function from($dbRow) {
         $name = new PersonName();
-        $name->firstName = $dbRow->firstname;
-        $name->lastName = $dbRow->lastname;
-        $name->badgeName = $dbRow->badgename;
-        $name->pubsName = $dbRow->pubsname;
+        if (property_exists($dbRow, 'firstname')) {
+            $name->firstName = $dbRow->firstname;
+        }
+        if (property_exists($dbRow, 'lastname')) {
+            $name->lastName = $dbRow->lastname;
+        }
+        if (property_exists($dbRow, 'badgename')) {
+            $name->badgeName = $dbRow->badgename;
+        }
+        if (property_exists($dbRow, 'pubsname')) {
+            $name->pubsName = $dbRow->pubsname;
+        }
         return $name;
     }
 

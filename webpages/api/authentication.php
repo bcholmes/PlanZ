@@ -26,6 +26,10 @@ class Authentication {
     function isProgrammingStaff() {
         return $this->isLoggedIn() && may_I("Staff");
     }
+
+    function isEmailAllowed() {
+        return $this->isLoggedIn() && may_I("SendEmail");
+    }
 }
 
 ?>

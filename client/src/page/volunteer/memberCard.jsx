@@ -1,10 +1,9 @@
-import axios from "axios";
 import React, { useState } from "react";
 import Card from "react-bootstrap/Card";
 import LoadingButton from "../../common/loadingButton";
 import NameDisplay from "../../common/nameDisplay";
-import { redirectToLogin } from "../../common/redirectToLogin";
 import { fetchAllShiftAssignments } from "../../state/volunteerFunctions";
+import authAxios from "../../common/authAxios";
 
 const MemberCard = ({candidate, shiftId, closeModal}) => {
 
@@ -12,15 +11,12 @@ const MemberCard = ({candidate, shiftId, closeModal}) => {
 
     const createVolunteerAssignment = (badgeId) => {
         setLoading(true);
-        axios.post('/api/volunteer/volunteer_shift_assignment.php', { shiftId: shiftId, badgeId: badgeId })
+        authAxios.post('/api/volunteer/volunteer_shift_assignment.php', { shiftId: shiftId, badgeId: badgeId })
         .then(res => {
             setLoading(false);
             fetchAllShiftAssignments();
         })
         .catch(error => {
-            if (error.response && error.response.status === 401) {
-                redirectToLogin();
-            }
         });
     }
 
