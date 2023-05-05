@@ -94,12 +94,12 @@ const EmailComposePage = ({isLoading, emailTo, emailFrom, emailCC, emailValues, 
 
             <div className="form-group">
                 <label htmlFor="subject" className="sr-only">Subject: </label>
-                <input className="form-control" name="subject" type="text" size="40" placeholder="Subject..." value={subject} onChange={(e) => setSubject(e.target.value)} />
+                <input className="form-control" name="subject" id="subject" type="text" size="40" placeholder="Subject..." value={subject} onChange={(e) => setSubject(e.target.value)} />
             </div>
 
             <div className="form-group">
-                <label htmlFor="subject" className="sr-only">Body: </label>
-                <textarea name="body" className="form-control" rows="25" value={text} onChange={(e) => setText(e.target.value)}>
+                <label htmlFor="body" className="sr-only">Body: </label>
+                <textarea name="body" id="body" className="form-control" rows="25" value={text} onChange={(e) => setText(e.target.value)}>
                 </textarea>
             </div>
 

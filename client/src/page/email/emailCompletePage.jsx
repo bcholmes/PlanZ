@@ -11,4 +11,4 @@ const EmailCompletePage = () => {
     </div>)
 }
 
-export default EmailReviewPage;
+export default EmailCompletePage;

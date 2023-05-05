@@ -12,65 +12,14 @@ require_once(__DIR__ . '/../format_functions.php');
 require_once(__DIR__ . '/../../data_functions.php');
 require_once(__DIR__ . '/../authentication.php');
 require_once(__DIR__ . '/email_model.php');
+require_once(__DIR__ . '/email_schedule_generator.php');
 require_once(__DIR__ . '/email_history_model.php');
 require_once(__DIR__ . '/../../email_functions.php');
 require_once(__DIR__ . '/../../external/swiftmailer-5.4.8/lib/swift_required.php');
 require_once(__DIR__ . '/../../name.php');
 require_once(__DIR__ . '/../../email_functions.php');
 
-define("SHOW_EVENT_SCHEDULE", "1");
-define("SHOW_FULL_SCHEDULE", "2");
 
-function generate_email_schedules($db, $status, $simpleTo) {
-    $ConStartDatim = CON_START_DATIM;
-    if ($status === SHOW_EVENT_SCHEDULE) {
-        $extraWhereClause = "        AND S.divisionid=3"; // events
-    } else {
-        $extraWhereClause = "";
-    }
-    $badgeidArr = "";
-    foreach($simpleTo as $to) {
-        if ($badgeidArr != "") {
-            $badgeidArr .= ", ";
-        }
-        $badgeidArr .= $to->badgeId;
-    }
-    $badgeidList = $badgeidArr;
-    $query = <<<EOD
-SELECT
-        POS.badgeid, RM.roomname, S.title, DATE_FORMAT(ADDTIME('$ConStartDatim$', SCH.starttime),'%a %l:%i %p') as starttime,
-        DATE_FORMAT(S.duration, '%i') as durationmin, DATE_FORMAT(S.duration, '%k') as durationhrs, SCH.sessionid
-    FROM
-             Schedule SCH
-        JOIN Rooms RM USING (roomid)
-        JOIN Sessions S USING (sessionid)
-        JOIN ParticipantOnSession POS USING (sessionid)
-    WHERE
-            POS.badgeid IN ($badgeidList)
-$extraWhereClause
-    ORDER BY
-        POS.badgeid,
-        SCH.starttime;
-EOD;
-
-    $stmt = mysqli_prepare($db, $query);
-    $returnResult = array();
-    if (mysqli_stmt_execute($stmt)) {
-        $resultSet = mysqli_stmt_get_result($stmt);
-        while ($rowArr = mysqli_fetch_assoc($resultSet)) {
-            $scheduleRow = str_pad($rowArr["starttime"], 15); // Fri 12:00 AM (plus 3 spaces)
-            $scheduleRow .= str_pad(renderDuration($rowArr["durationmin"], $rowArr["durationhrs"]), 14); // 10 Hr 59 Min (plus 2 spaces)
-            $scheduleRow .= str_pad(substr($rowArr["roomname"], 0, 25), 27); // Commonwealth Ballroom ABC (plus 2 spaces)
-            $scheduleRow .= str_pad($rowArr["sessionid"], 12); // Session ID (plus 2 spaces)
-            $scheduleRow .= str_pad($rowArr["title"], 50); // Video 201: Advanced Live Television Production
-            if (!isset($returnResult[$rowArr["badgeid"]])) {
-                $returnResult[$rowArr["badgeid"]] = array();
-            }
-            $returnResult[$rowArr["badgeid"]][] = $scheduleRow;
-        }
-    }
-    return $returnResult;
-}
 
 function send_individual_email($db, $mailer, $emailToAddress, $name, $emailFrom, $emailCC, $emailReplyTo, $subject, $text) {
     try {
@@ -133,37 +82,7 @@ function send_individual_emails($db, $mailer, $emailTo, $emailFrom, $emailCC, $e
     }
 
     foreach ($addresses as $to) {
-
-        $alteredText = str_replace(
-            array("\$BADGEID\$",
-                "\$FIRSTNAME\$",
-                "\$LASTNAME\$",
-                "\$EMAILADDR\$",
-                "\$PUBNAME\$",
-                "\$BADGENAME\$"),
-            array($to->badgeId,
-                $to->name->firstName,
-                $to->name->lastName,
-                $to->address,
-                $to->name->getPubsName(),
-                $to->name->getBadgeName()),
-            $text);
-
-        if ($scheduleSubstitution == SHOW_FULL_SCHEDULE || $scheduleSubstitution == SHOW_EVENT_SCHEDULE) {
-            if ($scheduleSubstitution == SHOW_EVENT_SCHEDULE) {
-                $scheduleTag = '$EVENTS_SCHEDULE$';
-            } else {
-                $scheduleTag = '$FULL_SCHEDULE$';
-            }
-            if (isset($schedules[$to->badgeId])) {
-                $scheduleInfo = " Start Time      Duration            Room Name          Session ID                      Title\n";
-                $scheduleInfo .= implode("\n", $schedules[$to->badgeId]);
-            } else {
-                $scheduleInfo = "No scheduled items for you were found.";
-            }
-            $alteredText = str_replace($scheduleTag, $scheduleInfo, $alteredText);
-        }
-
+        $alteredText = $to->performSubstitutionOnText($text, isset($schedules[$to->badgeId]) ? $schedules[$to->badgeId] : null);
         if (SMTP_QUEUEONLY === TRUE || $sentCounter > SMTP_MAX_MESSAGES) {
             queue_email($db, $to->address, $to->name, $emailFrom, $emailCC, $emailReplyTo, $subject, $alteredText);
         } else {

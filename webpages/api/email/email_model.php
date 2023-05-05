@@ -1,5 +1,8 @@
 <?php
 
+define("SHOW_EVENT_SCHEDULE", "1");
+define("SHOW_FULL_SCHEDULE", "2");
+
 class EmailCC {
     public $id;
     public $name;
@@ -148,6 +151,45 @@ class SimpleEmailTo {
         $this->badgeId = $badgeId;
         $this->name = $name;
         $this->address = $address;
+    }
+
+    public function performSubstitutionOnText($text, $schedule) {
+        $scheduleSubstitution = checkForShowSchedule($text);
+
+        $alteredText = str_replace(
+            array("\$BADGEID\$",
+                "\$FIRSTNAME\$",
+                "\$LASTNAME\$",
+                "\$EMAILADDR\$",
+                "\$PUBNAME\$",
+                "\$BADGENAME\$"),
+            array($this->badgeId,
+                $this->name->firstName,
+                $this->name->lastName,
+                $this->address,
+                $this->name->getPubsName(),
+                $this->name->getBadgeName()),
+            $text);
+
+        if ($scheduleSubstitution == SHOW_FULL_SCHEDULE || $scheduleSubstitution == SHOW_EVENT_SCHEDULE) {
+            if ($scheduleSubstitution == SHOW_EVENT_SCHEDULE) {
+                $scheduleTag = '$EVENTS_SCHEDULE$';
+            } else {
+                $scheduleTag = '$FULL_SCHEDULE$';
+            }
+            if ($schedule != null) {
+                $scheduleInfo = " Start Time      Duration            Room Name          Session ID                      Title\n";
+                $scheduleInfo .= implode("\n", $schedule);
+            } else {
+                $scheduleInfo = "No scheduled items for you were found.";
+            }
+            $alteredText = str_replace($scheduleTag, $scheduleInfo, $alteredText);
+        }
+        return $alteredText;
+    }
+    function asJson() {
+        return array("name" => $this->name->getBadgeName(),
+            "address" => $this->address);
     }
 }
 
