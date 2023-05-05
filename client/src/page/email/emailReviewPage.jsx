@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
 import { sendEmails } from "../../state/emailFunctions";
 import LoadingButton from "../../common/loadingButton";
@@ -33,7 +33,7 @@ const EmailReviewPage = ({onNext, onPrevious, emailValues}) => {
                 toast("There was an error trying to preview the email. Try again later?", { className: "bg-danger text-white" });
             }
         );
-    }, []);
+    }, [emailValues]);
 
     const emailList = () => {
         return recipients.map(r => (r.name ? r.name  + " - " : "") + r.address).join("\n");

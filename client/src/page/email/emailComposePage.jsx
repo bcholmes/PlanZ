@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { connect } from 'react-redux';
 import { fetchEmailSettings } from "../../state/emailFunctions";
 import { Button } from "react-bootstrap";
@@ -14,6 +14,8 @@ const EmailComposePage = ({isLoading, emailTo, emailFrom, emailCC, emailValues, 
     const [ replyTo, setReplyTo ] = useState(emailValues?.replyTo);
     const [ subject, setSubject ] = useState(emailValues?.subject ?? "");
     const [ text, setText ] = useState(emailValues?.text ?? "");
+    const [ subjectError, setSubjectError ] = useState(null);
+    const [ textError, setTextError ] = useState(null);
 
     useEffect(() => {
         if (isLoading) {
@@ -26,18 +28,54 @@ const EmailComposePage = ({isLoading, emailTo, emailFrom, emailCC, emailValues, 
                 }
             });
         }
-    }, []);
+    }, [isLoading]);
+
+    const validateSubject = (newSubject) => {
+        if (newSubject) {
+            setSubjectError(null);
+            return true;
+        } else {
+            setSubjectError("The subject should not be blank")
+            return false;
+        }
+    }
+
+    const validateText = (newText) => {
+        if (newText && newText.length >= 16) {
+            setTextError(null);
+            return true;
+        } else if (newText) {
+            setTextError("Please enter a more substantive text body.")
+            return false;
+        } else {
+            setTextError("The text body should not be blank")
+            return false;
+        }
+    }
 
     const navigateToNextPage = () => {
-        store.dispatch(setEmailValues({
-            to: to,
-            from: from,
-            cc: cc,
-            replyTo: replyTo,
-            subject: subject,
-            text: text
-        }));
-        onNext();
+        if (validateSubject(subject) & validateText(text)) {
+
+            store.dispatch(setEmailValues({
+                to: to,
+                from: from,
+                cc: cc,
+                replyTo: replyTo,
+                subject: subject,
+                text: text
+            }));
+            onNext();
+        }
+    }
+
+    const onChangeSubject = (newSubject) => {
+        validateSubject(newSubject);
+        setSubject(newSubject);
+    }
+
+    const onChangeText = (newText) => {
+        validateText(newText);
+        setText(newText);
     }
 
     return (<div className="card">
@@ -94,13 +132,15 @@ const EmailComposePage = ({isLoading, emailTo, emailFrom, emailCC, emailValues, 
 
             <div className="form-group">
                 <label htmlFor="subject" className="sr-only">Subject: </label>
-                <input className="form-control" name="subject" id="subject" type="text" size="40" placeholder="Subject..." value={subject} onChange={(e) => setSubject(e.target.value)} />
+                <input className={'form-control ' + (subjectError ? 'is-invalid' : '')} name="subject" id="subject" type="text" size="40" placeholder="Subject..." value={subject} onChange={(e) => onChangeSubject(e.target.value)} />
+                {subjectError ? (<div className="invalid-feedback">{subjectError}</div>) : undefined}
             </div>
 
             <div className="form-group">
                 <label htmlFor="body" className="sr-only">Body: </label>
-                <textarea name="body" id="body" className="form-control" rows="25" value={text} onChange={(e) => setText(e.target.value)}>
+                <textarea name="body" id="body" className={'form-control ' + (textError ? 'is-invalid' : '')} rows="25" value={text} onChange={(e) => onChangeText(e.target.value)}>
                 </textarea>
+                {textError ? (<div className="invalid-feedback">{textError}</div>) : undefined}
             </div>
 
             <div>
