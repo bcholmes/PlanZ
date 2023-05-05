@@ -1,10 +1,11 @@
-import { SET_EMAIL_OPTIONS } from "./emailActions";
+import { SET_EMAIL_OPTIONS, SET_EMAIL_VALUES } from "./emailActions";
 
 const initialState = {
     loading: true,
     emailCC: [],
     emailTo: [],
-    emailFrom: []
+    emailFrom: [],
+    emailValues: {}
 }
 
 const emailReducer = (state = initialState, action) => {
@@ -16,6 +17,11 @@ const emailReducer = (state = initialState, action) => {
                 emailTo: action.payload.emailTo ?? [],
                 emailFrom: action.payload.emailFrom ?? [],
                 emailCC: action.payload.emailCC ?? []
+            }
+        case SET_EMAIL_VALUES:
+            return {
+                ...state,
+                emailValues: action.payload
             }
         default:
             return state;

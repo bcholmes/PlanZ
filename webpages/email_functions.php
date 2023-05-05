@@ -212,7 +212,8 @@ function render_send_email_engine($email, $message_warning) {
 // "0" don't show schedule; "1" show events schedule; "2" show full schedule; "3" error condition
 function checkForShowSchedule($body) {
     global $message;
-    $body = "\r\n" . $body . "\r\n";
+    $body = "\n" . str_replace("\r", "", $body) . "\n";
+
     if (preg_match('/\\$EVENTS_SCHEDULE\\$/u', $body) === 1) {
         if (preg_match('/\\$FULL_SCHEDULE\\$/u', $body) === 1) {
             $message = "You may not include both events schedule and full schedule";
@@ -220,7 +221,7 @@ function checkForShowSchedule($body) {
         } else if (preg_match('/\\$EVENTS_SCHEDULE\\$.*\\$EVENTS_SCHEDULE\\$/su', $body) === 1) {
             $message = "You may not include the schedule more than once in the body.";
             return "3";
-        } else if (preg_match('/\\r\\n\\$EVENTS_SCHEDULE\\$\\r\\n/u', $body) === 0) {
+        } else if (preg_match('/\\n\\$EVENTS_SCHEDULE\\$\\n/u', $body) === 0) {
             $message = "The schedule may appear only by itself on a line.";
             return "3";
         } else {
@@ -230,7 +231,7 @@ function checkForShowSchedule($body) {
         if (preg_match('/\\$FULL_SCHEDULE\\$.*\\$FULL_SCHEDULE\\$/su', $body) === 1) {
             $message = "You may not include the schedule more than once in the body.";
             return "3";
-        } else if (preg_match('/\\r\\n\\$FULL_SCHEDULE\\$\\r\\n/u', $body) === 0) {
+        } else if (preg_match('/\\n\\$FULL_SCHEDULE\\$\\n/u', $body) === 0) {
             $message = "The schedule may appear only by itself on a line.";
             return "3";
         } else {
