@@ -2,9 +2,38 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { redirectToLogin } from "../../common/redirectToLogin";
 
-const InitialDataView = () => {
+interface IAttendanceType {
+    inPerson: string;
+    online: string;
+    either: string;
 
-    const [data, setData] = useState({});
+}
+
+interface ISession {
+    sessionId: string;
+    title: string;
+    rank: string;
+    attending: IAttendanceType;
+}
+
+interface IParticipantName {
+    badgeName: string;
+}
+
+interface IParticipant {
+    badgeId: string;
+    name: IParticipantName;
+    isOnlineOnly: boolean;
+}
+
+interface ISessionData {
+    sessions?: ISession[];
+    participants?: IParticipant[];
+}
+
+const InitialDataView: React.FC<{}> = () => {
+
+    const [data, setData] = useState<ISessionData>({});
 
     function fetchData() {
         axios.get('/api/scheduler/initial_data_summary.php')
@@ -21,6 +50,14 @@ const InitialDataView = () => {
 
 
     useEffect(() => fetchData(), []);
+    const sessionRows = data?.sessions?.map(s => (<tr key={'session-' + s.sessionId}>
+                <td>{s.sessionId}</td>
+                <td>{s.title}</td>
+                <td className="text-center">{s.rank}</td>
+                <td className="small text-center">{s.attending?.inPerson}</td>
+                <td className="small text-center">{s.attending?.online}</td>
+                <td className="small text-center">{s.attending?.either}</td>
+            </tr>));
 
     return (<>
             <h3>Sessions</h3>
@@ -36,14 +73,7 @@ const InitialDataView = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {data?.sessions?.map(s => (<tr key={'session-' + s.sessionId}>
-                        <td>{s.sessionId}</td>
-                        <td>{s.title}</td>
-                        <td className="text-center">{s.rank}</td>
-                        <td className="small text-center">{s.attending?.inPerson}</td>
-                        <td className="small text-center">{s.attending?.online}</td>
-                        <td className="small text-center">{s.attending?.either}</td>
-                    </tr>))}
+                    {sessionRows}
                 </tbody>
             </table>
 

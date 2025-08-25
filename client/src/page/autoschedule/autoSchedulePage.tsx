@@ -3,9 +3,9 @@ import { Button } from "react-bootstrap";
 import InitialDataView from "./initialDataView";
 import MetricsView from "./metricsView";
 
-const AutoSchedulePage = () => {
+const AutoSchedulePage: React.FC<{}> = () => {
 
-    const [step, setStep] = useState(0);
+    const [step, setStep] = useState<number>(0);
 
     const showStep = () => {
         if (step === 1) {

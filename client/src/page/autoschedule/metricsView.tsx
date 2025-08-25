@@ -2,9 +2,18 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { redirectToLogin } from "../../common/redirectToLogin";
 
-const MetricsView = () => {
+interface IMetrics {
+    panels?: number;
+    panelsWithPanelists?: number;
+    inPersonSlots?: number;
+    onlineSlots?: number;
+    respondants?: number;
+    panelists?: number;
+}
 
-    const [metrics, setMetrics] = useState({});
+const MetricsView: React.FC<{}> = () => {
+
+    const [metrics, setMetrics] = useState<IMetrics>({});
 
     function fetchMetrics() {
         axios.get('/api/scheduler/initial_metrics.php')
@@ -30,7 +39,7 @@ const MetricsView = () => {
                 <table className="table table-bordered">
                     <tbody>
                         <tr>
-                            <th rowSpan="2">Session suggestions</th>
+                            <th rowSpan={2}>Session suggestions</th>
                             <td>Total</td>
                             <td className="text-center">{metrics?.panels}</td>
                         </tr>
@@ -39,7 +48,7 @@ const MetricsView = () => {
                             <td className="text-center">{metrics?.panelsWithPanelists}</td>
                         </tr>
                         <tr>
-                            <th rowSpan="2"><a href="../TimeSlot.php">Available panel slots</a></th>
+                            <th rowSpan={2}><a href="../TimeSlot.php">Available panel slots</a></th>
                             <td>In-Person</td>
                             <td className="text-center">{metrics?.inPersonSlots}</td>
                         </tr>
@@ -48,11 +57,11 @@ const MetricsView = () => {
                             <td className="text-center">{metrics?.onlineSlots}</td>
                         </tr>
                         <tr>
-                            <th colSpan="2">Interest survey respondants</th>
+                            <th colSpan={2}>Interest survey respondants</th>
                             <td className="text-center">{metrics?.respondants}</td>
                         </tr>
                         <tr>
-                            <th colSpan="2">Potential panelist respondants</th>
+                            <th colSpan={2}>Potential panelist respondants</th>
                             <td className="text-center">{metrics?.panelists}</td>
                         </tr>
                     </tbody>

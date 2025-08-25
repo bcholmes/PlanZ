@@ -32,4 +32,20 @@ function convert_iso_date_to_date($date) {
     }
 }
 
+function convert_time_period_to_minutes($timePeriod) {
+    if ($timePeriod) {
+        $index = strpos($timePeriod, ":");
+        if ($index == false) {
+            return intval($timePeriod);
+        } else {
+            $hours = substr($timePeriod, 0, $index);
+            $minutes = substr($timePeriod, $index + 1);
+
+            return $hours * 60 + $minutes;
+        }
+    } else {
+        return 0;
+    }
+}
+
 ?>
