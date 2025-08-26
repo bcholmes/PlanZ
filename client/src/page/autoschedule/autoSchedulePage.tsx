@@ -2,15 +2,18 @@ import React, { useState } from "react";
 import { Button } from "react-bootstrap";
 import InitialDataView from "./initialDataView";
 import MetricsView from "./metricsView";
+import { AutoSchedulerIntroduction } from "./autoSchedulerIntroductionView";
 
 const AutoSchedulePage: React.FC<{}> = () => {
 
     const [step, setStep] = useState<number>(0);
 
     const showStep = () => {
-        if (step === 1) {
+        if (step === 0) {
+            return (<AutoSchedulerIntroduction />);
+        } else if (step === 1) {
             return (<InitialDataView />)
-        } else if (step === 0) {
+        } else if (step === 2) {
             return (<MetricsView />);
         } else {
             return null;
@@ -24,7 +27,10 @@ const AutoSchedulePage: React.FC<{}> = () => {
         <div className="card-body">
             {showStep()}
         </div>
-        <div className="card-footer text-right">
+        <div className="card-footer d-flex justify-content-between">
+            <div>
+                {step > 0 ? (<Button variant="secondary" onClick={() => setStep(step-1)}>Back</Button>) : undefined}
+            </div>
             <Button variant="primary" onClick={() => setStep(step+1)}>Next</Button>
         </div>
     </div>);

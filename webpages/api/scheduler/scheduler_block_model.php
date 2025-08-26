@@ -51,8 +51,6 @@ class SchedulerDay {
             $endOfDay = DateTime::createFromFormat('Y-m-d H:i', $endOfDayInitialString);
             $endOfDay->modify('+' . convert_time_period_to_minutes($schedulerDay->timeRange->endTime) . ' minutes');
 
-error_log('end of day: ' . $endOfDay->format('Y-m-d H:i') . " (" . convert_time_period_to_minutes($schedulerDay->timeRange->endTime) . ")");
-
             $time = clone $startTime;
             while ($time < $endOfDay) {
                 $startTimeAsString = $time->format('H:i');
